@@ -1,3 +1,6 @@
+> [!NOTE]  
+> Yes this is like 100% vibe coded. No guarantees are made that this will actually long term preserve your data, as I don't fully trust the code to be properly using IndexDB and I haven't audited it at all. Everything else in this repo, other than this note, is 100% vibe coded.
+
 # Typstability
 
 A minimal, local-first PDF editor with Typst text boxes. Open a PDF, add images, draw, insert blank pages, and export a new PDF without uploading the document.
