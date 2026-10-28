@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { EditorPage, ImageElement, TypstElement } from '../types'
 import { renderPdfPage } from '../lib/pdf'
+import { imageCropStyle } from '../lib/image-crop'
 
 const THUMBNAIL_WIDTH = 100
 
@@ -28,7 +29,7 @@ function ThumbnailObject({ element, page }: { element: ImageElement | TypstEleme
       <img src={source} alt="" draggable={false} style={element.kind === 'typst' ? {
         width: `${(element.previewWidth ?? element.width) / element.width * 100}%`,
         height: `${(element.previewHeight ?? element.height) / element.height * 100}%`,
-      } : undefined} />
+      } : imageCropStyle(element)} />
     </span>
   )
 }

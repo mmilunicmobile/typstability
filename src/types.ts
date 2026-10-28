@@ -11,6 +11,8 @@ export type ImageElement = {
   height: number
   dataUrl: string
   mime: 'image/png' | 'image/jpeg'
+  /** Visible source rectangle, normalized to the original image dimensions. */
+  crop?: Box
 }
 
 export type TypstElement = {
@@ -54,6 +56,7 @@ export type EditorPage = {
 export type EditorDocument = {
   name: string
   prelude: string
+  defaultTopInset?: number
   originalPdf: Uint8Array | null
   pages: EditorPage[]
   updatedAt: number
@@ -64,6 +67,7 @@ export type Selection = { pageId: string; elementId: string } | null
 export type Box = { x: number; y: number; width: number; height: number }
 
 export type ObjectDrop = {
+  disableSnap?: boolean
   clientX: number
   clientY: number
   grabOffset: Point

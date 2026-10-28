@@ -7,10 +7,17 @@ import { PageThumbnail } from './components/PageThumbnail'
 import { PreludeInspector } from './components/PreludeInspector'
 import { Toolbar } from './components/Toolbar'
 import { TypstInspector } from './components/TypstInspector'
+import { ImageInspector } from './components/ImageInspector'
 import type { EditorSessions } from './components/TypstCodeEditor'
+import { useAlignmentSettings } from './lib/use-alignment-settings'
+import { snapBoxPosition } from './lib/alignment'
 import { useViewportZoom } from './lib/use-viewport-zoom'
+import { useTrackpadZoom } from './lib/use-trackpad-zoom'
+import { useWebMcp } from './lib/use-webmcp'
+import { AgentAccess } from './components/AgentAccess'
 import { useHistoryState } from './lib/history'
 import { decodeImageFile, isSupportedImageFile, placeImage } from './lib/images'
+import { imageCropStyle } from './lib/image-crop'
 import { createPdfProxy, downloadBytes, exportPdf, readPdf } from './lib/pdf'
 import { useProjects } from './lib/use-projects'
 import { downloadProject, parseProject } from './lib/project-file'
@@ -19,6 +26,7 @@ import { compileTypstSvg } from './typst/client'
 import { DEFAULT_TYPST_TOP_INSET } from './typst/source'
 import { strokeTouchesPoint } from './lib/geometry'
 import { reorderPages } from './lib/pages'
+import { nudgeElement } from './lib/nudge'
 import type { DropSide } from './lib/pages'
 import type {
   Box,
@@ -54,8 +62,10 @@ function App() {
   const resetDocumentState = documentHistory.reset
   const [pdfProxy, setPdfProxy] = useState<PDFDocumentProxy | null>(null)
   const [selection, setSelection] = useState<Selection>(null)
+  const [sourceFocusRequest, setSourceFocusRequest] = useState(0)
   const [activePageId, setActivePageId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
+  const alignment = useAlignmentSettings()
   const [penColor, setPenColor] = useState('#1f2328')
   const [penRadius, setPenRadius] = useState(2)
   const [eraserRadius, setEraserRadius] = useState(12)
@@ -104,6 +114,7 @@ function App() {
   const busy = library.busy || readingFile
   const widestPage = Math.max(0, ...document.pages.map((page) => page.width))
   const [zoom, setZoom] = useViewportZoom(documentScrollRef, widestPage, !library.libraryOpen && document.pages.length > 0)
+  useTrackpadZoom(documentScrollRef, zoom, setZoom, !library.libraryOpen && document.pages.length > 0)
 
   const activePage = document.pages.find((page) => page.id === activePageId) ?? document.pages[0]
   const selectedElement = useMemo(() => {
@@ -114,6 +125,7 @@ function App() {
   }, [document.pages, selection])
 
   const selectedTypst = selectedElement?.kind === 'typst' ? selectedElement : null
+  const selectedImage = selectedElement?.kind === 'image' ? selectedElement : null
   const selectedTypstId = selectedTypst?.id
   const selectedTypstSource = selectedTypst?.source
   const selectedTypstWidth = selectedTypst?.width
@@ -141,6 +153,12 @@ function App() {
   const updateDocument = useCallback((updater: (current: EditorDocument) => EditorDocument, record = true) => {
     setDocumentState((current) => ({ ...updater(current), updatedAt: Date.now() }), record)
   }, [setDocumentState])
+
+  const agentAccess = useWebMcp({
+    active: library.ready && !library.libraryOpen && !busy && document.pages.length > 0,
+    document, projectId: library.activeId ?? null, selection,
+    onEdit: (next) => updateDocument(() => next),
+  })
 
   const updateElement = useCallback((pageId: string, next: PageElement, record = true) => {
     updateDocument((current) => ({
@@ -289,6 +307,7 @@ function App() {
 
   useEffect(() => {
     if (!preludeOpen) return
+    setPreludeError(undefined)
     let cancelled = false
     const prelude = document.prelude
     const timer = window.setTimeout(() => {
@@ -391,7 +410,7 @@ function App() {
       kind: 'typst',
       ...box,
       source: '',
-      topInset: DEFAULT_TYPST_TOP_INSET,
+      topInset: document.defaultTopInset ?? DEFAULT_TYPST_TOP_INSET,
     }
     updateDocument((current) => ({
       ...current,
@@ -400,6 +419,7 @@ function App() {
         : page),
     }))
     setSelection({ pageId, elementId: element.id })
+    setSourceFocusRequest((request) => request + 1)
     setPreludeOpen(false)
     setTool('select')
   }
@@ -428,11 +448,14 @@ function App() {
       x = (drop.clientX - rect.left) / zoom - drop.grabOffset.x
       y = (drop.clientY - rect.top) / zoom - drop.grabOffset.y
     }
-    const moved = {
+    const bounded = {
       ...element,
       x: Math.max(0, Math.min(destinationPage.width - element.width, x)),
       y: Math.max(0, Math.min(destinationPage.height - element.height, y)),
     }
+
+    const moved = alignment.snapEnabled && !drop.disableSnap
+      ? snapBoxPosition(bounded, destinationPage, zoom, element.id).box : bounded
 
     updateDocument((current) => ({
       ...current,
@@ -451,7 +474,7 @@ function App() {
     }))
     setActivePageId(destinationPageId)
     setSelection({ pageId: destinationPageId, elementId: moved.id })
-  }, [document.pages, updateDocument, zoom])
+  }, [alignment.snapEnabled, document.pages, updateDocument, zoom])
 
   const eraseAt = useCallback((pageId: string, point: Point) => {
     const page = document.pages.find((candidate) => candidate.id === pageId)
@@ -587,8 +610,19 @@ function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (busy || library.libraryOpen) return
-      const target = event.target as HTMLElement
-      const editing = target.isContentEditable || !!target.closest('textarea, input, select, .inspector')
+      const target = event.target instanceof HTMLElement ? event.target : null
+      const editing = !!target && (target.isContentEditable || !!target.closest('textarea, input, select, [contenteditable], .inspector'))
+      if (!editing && selection && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const page = document.pages.find((candidate) => candidate.id === selection.pageId)
+        const element = page?.elements.find((candidate) => candidate.id === selection.elementId)
+        if (page && element && element.kind !== 'stroke' && event.key.startsWith('Arrow')) {
+          const moved = nudgeElement(element, page, event.key, event.shiftKey)
+          if (moved) {
+            event.preventDefault()
+            if (moved !== element) updateElement(page.id, moved)
+          }
+        }
+      }
       if (!editing && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         if (event.shiftKey) documentHistory.redo()
@@ -650,6 +684,10 @@ function App() {
         penColor={penColor}
         penRadius={penRadius}
         eraserRadius={eraserRadius}
+        showGrid={alignment.showGrid}
+        snapEnabled={alignment.snapEnabled}
+        onGrid={alignment.toggleGrid}
+        onSnap={alignment.toggleSnap}
         preludeOpen={preludeOpen}
         onImage={() => imageInputRef.current?.click()}
         onTool={setChosenTool}
@@ -720,7 +758,7 @@ function App() {
             <button className="add-page-button" onClick={insertBlankPage} title="Insert a blank page after the current page"><Plus size={15} /> Add page</button>
           </>}
         </nav>
-        <main ref={documentScrollRef} className={`document-scroll ${selectedTypst || preludeOpen ? 'with-inspector' : ''}`}>
+        <main ref={documentScrollRef} className={`document-scroll ${selectedTypst || selectedImage || preludeOpen ? 'with-inspector' : ''}`}>
           {document.pages.map((page, index) => (
             <div id={`page-${page.id}`} key={page.id} className={`page-positioner ${imageDropTarget === page.id ? 'is-image-drop-target' : ''}`}>
               <CanvasPage
@@ -730,6 +768,8 @@ function App() {
                 zoom={zoom}
                 tool={tool}
                 selection={selection}
+                showGrid={alignment.showGrid}
+                snapEnabled={alignment.snapEnabled}
                 penColor={penColor}
                 penRadius={penRadius}
                 eraserRadius={eraserRadius}
@@ -737,6 +777,10 @@ function App() {
                 onSelect={(elementId) => {
                   setPreludeOpen(false)
                   setSelection(elementId ? { pageId: page.id, elementId } : null)
+                  if (elementId) {
+                    setTool('select')
+                    setSourceFocusRequest((request) => request + 1)
+                  }
                 }}
                 onChangeElement={(element, record) => updateElement(page.id, element, record)}
                 onResizeEnd={(element) => {
@@ -767,11 +811,23 @@ function App() {
         {!preludeOpen && selectedTypst && selection && (
           <TypstInspector
             element={selectedTypst}
+            prelude={document.prelude}
             documentKey={`${library.activeId}:box:${selectedTypst.id}`}
             sessions={editorSessions}
-            onSourceChange={(source) => updateElement(selection.pageId, { ...selectedTypst, source })}
+            focusRequest={sourceFocusRequest}
+            onSourceChange={(source) => updateElement(selection.pageId, { ...selectedTypst, source, error: undefined })}
             onTopInsetChange={(topInset) => updateElement(selection.pageId, { ...selectedTypst, topInset })}
+            onDocumentStyles={() => setPreludeOpen(true)}
             onPageFillChange={(pageFill) => updateElement(selection.pageId, { ...selectedTypst, pageFill })}
+            onDelete={deleteSelection}
+            onClose={() => setSelection(null)}
+          />
+        )}
+        {!preludeOpen && selectedImage && selection && (
+          <ImageInspector
+            key={`${selectedImage.id}:${JSON.stringify(selectedImage.crop)}`}
+            element={selectedImage}
+            onChange={(element) => updateElement(selection.pageId, element)}
             onDelete={deleteSelection}
             onClose={() => setSelection(null)}
           />
@@ -779,6 +835,12 @@ function App() {
         {preludeOpen && (
           <PreludeInspector
             source={document.prelude}
+            defaultTopInset={document.defaultTopInset ?? DEFAULT_TYPST_TOP_INSET}
+            onDefaultTopInsetChange={(defaultTopInset) => updateDocument((current) => ({ ...current, defaultTopInset }))}
+            onApplyPadding={() => updateDocument((current) => ({ ...current, pages: current.pages.map((page) => ({
+              ...page, elements: page.elements.map((element) => element.kind === 'typst'
+                ? { ...element, topInset: current.defaultTopInset ?? DEFAULT_TYPST_TOP_INSET } : element),
+            })) }))}
             documentKey={`${library.activeId}:prelude`}
             sessions={editorSessions}
             error={preludeError}
@@ -797,7 +859,7 @@ function App() {
             }}
           >
             {dragPreview.element.kind === 'image' && (
-              <img src={dragPreview.element.dataUrl} alt="" />
+              <img src={dragPreview.element.dataUrl} alt="" style={imageCropStyle(dragPreview.element)} />
             )}
             {dragPreview.element.kind === 'typst' && dragPreview.element.previewSvg && (
               <img
@@ -810,7 +872,8 @@ function App() {
       </div>
       <footer className="editor-statusbar">
         <span className="page-count">Page {Math.max(1, document.pages.findIndex((page) => page.id === activePage?.id) + 1)} of {document.pages.length}</span>
-        <span className="tool-hint">{tool === 'typst' ? 'Drag on a page to add a text box.' : tool === 'pen' ? 'Drag to draw. Your strokes save automatically.' : tool === 'eraser' ? 'Drag over pen strokes to erase them.' : 'Click an object to move, resize, or edit it.'}</span>
+        <AgentAccess {...agentAccess} />
+        <span className="tool-hint">{tool === 'typst' ? 'Drag to add a text box; click a box to edit.' : tool === 'pen' ? 'Drag to draw. Your strokes save automatically.' : tool === 'eraser' ? 'Drag over pen strokes to erase them.' : 'Click to edit. Drag corners to resize; hold Shift to keep proportions.'}</span>
         <div className="zoom-control">
           <button className="fit-page" onClick={() => {
             const viewport = documentScrollRef.current
