@@ -19,6 +19,7 @@ import { compileTypstSvg } from './typst/client'
 import { DEFAULT_TYPST_TOP_INSET } from './typst/source'
 import { strokeTouchesPoint } from './lib/geometry'
 import { reorderPages } from './lib/pages'
+import { nudgeElement } from './lib/nudge'
 import type { DropSide } from './lib/pages'
 import type {
   Box,
@@ -587,8 +588,19 @@ function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (busy || library.libraryOpen) return
-      const target = event.target as HTMLElement
-      const editing = target.isContentEditable || !!target.closest('textarea, input, select, .inspector')
+      const target = event.target instanceof HTMLElement ? event.target : null
+      const editing = !!target && (target.isContentEditable || !!target.closest('textarea, input, select, [contenteditable], .inspector'))
+      if (!editing && selection && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const page = document.pages.find((candidate) => candidate.id === selection.pageId)
+        const element = page?.elements.find((candidate) => candidate.id === selection.elementId)
+        if (page && element && element.kind !== 'stroke' && event.key.startsWith('Arrow')) {
+          const moved = nudgeElement(element, page, event.key, event.shiftKey)
+          if (moved) {
+            event.preventDefault()
+            if (moved !== element) updateElement(page.id, moved)
+          }
+        }
+      }
       if (!editing && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         if (event.shiftKey) documentHistory.redo()

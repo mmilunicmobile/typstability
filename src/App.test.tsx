@@ -160,3 +160,34 @@ describe('Typst top inset', () => {
     await waitFor(() => expect(compileTypstSvg).toHaveBeenCalledWith('', 120, 50, '', 12, 'rgb("#f5f0e6")'))
   })
 })
+
+
+describe('keyboard nudging', () => {
+  it('nudges a selected text box, supports Shift, and records undo', async () => {
+    const { container } = render(<App />)
+    await createBlankProject()
+    fireEvent.click(screen.getByRole('button', { name: 'Add test Typst box' }))
+    const position = () => JSON.parse(container.querySelector<HTMLElement>('.page-shell')?.dataset.elements ?? '[]')[0]
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(position()).toMatchObject({ x: 11, y: 10 })
+    fireEvent.keyDown(window, { key: 'ArrowDown', shiftKey: true })
+    expect(position()).toMatchObject({ x: 11, y: 20 })
+    fireEvent.click(screen.getByTitle('Undo'))
+    expect(position()).toMatchObject({ x: 11, y: 10 })
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Project name' }), { key: 'ArrowLeft' })
+    fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Top inset' }), { key: 'ArrowDown' })
+    fireEvent.keyDown(window, { key: 'ArrowRight', ctrlKey: true })
+    expect(position()).toMatchObject({ x: 11, y: 10 })
+  })
+  it('nudges the image selected after pasting', async () => {
+    const { container } = render(<App />)
+    await createBlankProject()
+    const file = new File(['image'], 'photo.png', { type: 'image/png' })
+    fireEvent.paste(window, { clipboardData: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] } })
+    const elements = () => JSON.parse(container.querySelector<HTMLElement>('.page-shell')?.dataset.elements ?? '[]')
+    await waitFor(() => expect(elements()).toHaveLength(1))
+    const before = elements()[0]
+    fireEvent.keyDown(window, { key: 'ArrowLeft', shiftKey: true })
+    expect(elements()[0].x).toBe(before.x - 10)
+  })
+})
