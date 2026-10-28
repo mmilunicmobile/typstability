@@ -2,12 +2,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { EditorView } from '@codemirror/view'
 import { undo } from '@codemirror/commands'
-import { insertBracket } from '@codemirror/autocomplete'
+import { currentCompletions, insertBracket, startCompletion } from '@codemirror/autocomplete'
+import { forEachDiagnostic } from '@codemirror/lint'
 import { TypstCodeEditor, type EditorSessions } from './TypstCodeEditor'
 import { ThemeProvider } from './ThemeProvider'
 import { ThemeToggle } from './ThemeToggle'
 import { EDITOR_THEME_KEY } from '../lib/editor-theme'
 import { formatTypst } from '../typst/formatter'
+import { mapSource, wrapSource } from '../typst/source'
+import { positionAt } from '../typst/diagnostics'
 
 vi.mock('../typst/formatter', () => ({ formatTypst: vi.fn() }))
 beforeAll(() => {
@@ -25,6 +28,42 @@ function mount(value = '', sessions: EditorSessions = new Map(), documentKey = '
 }
 
 describe('Typst code editor', () => {
+  it('preserves offline Typst language completions while no server is connected', async () => {
+    const { view } = mount('#te')
+    act(() => { view.dispatch({ selection: { anchor: 3 } }); startCompletion(view) })
+    await waitFor(() => expect(currentCompletions(view.state).some((completion) => completion.label === 'text')).toBe(true))
+  })
+
+  it('shows compiler squiggles at the actual source positions without connecting an LSP', () => {
+    const value = '#unknown'
+    const prelude = '#let shared = 1\n#let style = blue'
+    const wrapped = mapSource(value, prelude, 240, 120)
+    const start = positionAt(wrapped.text, wrapped.source.from + 1)
+    const end = positionAt(wrapped.text, wrapped.source.to)
+    const error = `incremental compile: /preview.typ:${start.line + 1}:${start.character + 1}-${end.line + 1}:${end.character + 1}: error: unknown variable: unknown`
+    const props = { value, sessions: new Map(), documentKey: 'diagnostics', onChange: vi.fn(), label: 'Source', placeholder: '', error, languageContext: { prelude } }
+    const result = render(<TypstCodeEditor {...props} />)
+    const view = EditorView.findFromDOM(result.container.querySelector('.cm-editor')!)!
+    const ranges: number[][] = []
+    forEachDiagnostic(view.state, (_diagnostic, from, to) => ranges.push([from, to]))
+    expect(ranges).toEqual([[1, 8]])
+    expect(result.container.querySelector('.cm-lintRange-error')).toHaveTextContent('unknown')
+    result.rerender(<TypstCodeEditor {...props} error={undefined} />)
+    expect(result.container.querySelector('.cm-lintRange-error')).not.toBeInTheDocument()
+  })
+
+  it('maps a compiler error into the shared styles editor', () => {
+    const value = '#let color = unknown'
+    const wrapped = wrapSource('', value, 240, 120)
+    const position = positionAt(wrapped, wrapped.indexOf('unknown'))
+    const props = { value, sessions: new Map(), documentKey: 'prelude', onChange: vi.fn(), label: 'Shared styles', placeholder: '', languageContext: { section: 'prelude' as const }, error: `/preview.typ:${position.line + 1}:${position.character + 1}: error: unknown variable` }
+    const result = render(<TypstCodeEditor {...props} />)
+    const view = EditorView.findFromDOM(result.container.querySelector('.cm-editor')!)!
+    const ranges: number[][] = []
+    forEachDiagnostic(view.state, (_diagnostic, from, to) => ranges.push([from, to]))
+    expect(ranges).toEqual([[13, 14]])
+  })
+
   it('disables the active-line background for selected text and restores it for a caret', () => {
     const { view } = mount('Select this text\nAnd this line')
     expect(view.contentDOM).toHaveAttribute('data-has-selection', 'false')

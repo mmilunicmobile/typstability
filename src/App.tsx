@@ -289,6 +289,7 @@ function App() {
 
   useEffect(() => {
     if (!preludeOpen) return
+    setPreludeError(undefined)
     let cancelled = false
     const prelude = document.prelude
     const timer = window.setTimeout(() => {
@@ -767,9 +768,10 @@ function App() {
         {!preludeOpen && selectedTypst && selection && (
           <TypstInspector
             element={selectedTypst}
+            prelude={document.prelude}
             documentKey={`${library.activeId}:box:${selectedTypst.id}`}
             sessions={editorSessions}
-            onSourceChange={(source) => updateElement(selection.pageId, { ...selectedTypst, source })}
+            onSourceChange={(source) => updateElement(selection.pageId, { ...selectedTypst, source, error: undefined })}
             onTopInsetChange={(topInset) => updateElement(selection.pageId, { ...selectedTypst, topInset })}
             onPageFillChange={(pageFill) => updateElement(selection.pageId, { ...selectedTypst, pageFill })}
             onDelete={deleteSelection}

@@ -7,6 +7,7 @@ import { DEFAULT_TYPST_TOP_INSET } from '../typst/source'
 
 type Props = {
   element: TypstElement
+  prelude?: string
   documentKey: string
   sessions: EditorSessions
   onSourceChange: (source: string) => void
@@ -16,7 +17,7 @@ type Props = {
   onClose: () => void
 }
 
-export function TypstInspector({ element, documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDelete, onClose }: Props) {
+export function TypstInspector({ element, prelude = '', documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDelete, onClose }: Props) {
   return (
     <InspectorPanel label="Text box editor">
       <header className="inspector-header">
@@ -65,6 +66,8 @@ export function TypstInspector({ element, documentKey, sessions, onSourceChange,
         sessions={sessions}
         label="Text & Typst source"
         value={element.source}
+        error={element.error}
+        languageContext={{ prelude, width: element.width, height: element.height, topInset: element.topInset, pageFill: element.pageFill }}
         onChange={onSourceChange}
         placeholder="Write text or Typst markup…"
         footerAction={<button className="icon-button delete-source" onClick={onDelete} title="Delete text box" aria-label="Delete text box"><Trash2 size={15} /></button>}

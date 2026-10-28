@@ -47,3 +47,8 @@ it('preserves an expanded disclosure when errors clear and return', () => {
   view.rerender(<CompileErrors error="incremental compile: incomplete input" />)
   expect(view.container.querySelector('details')!.open).toBe(true)
 })
+
+it('counts compiler diagnostics with end ranges', () => {
+  render(<CompileErrors error={'incremental compile: /preview.typ:7:2-7:10: error: unknown variable\n/preview.typ:8:1-8:5: error: expected expression'} />)
+  expect(screen.getByLabelText('2 errors')).toBeInTheDocument()
+})

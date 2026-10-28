@@ -30,6 +30,8 @@ export function PreludeInspector({ source, documentKey, sessions, error, onChang
         sessions={sessions}
         label="Prelude source"
         value={source}
+        error={error}
+        languageContext={{ section: 'prelude' }}
         onChange={onChange}
         placeholder={'#let note(body) = block(\n  inset: 8pt,\n  fill: luma(95%),\n  body,\n)'}
       />
