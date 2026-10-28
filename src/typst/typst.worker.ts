@@ -8,6 +8,7 @@ import boldFont from '../assets/fonts/NewCM10-Bold.otf?url'
 import italicFont from '../assets/fonts/NewCM10-Italic.otf?url'
 import mathFont from '../assets/fonts/NewCMMath-Regular.otf?url'
 import { wrapSource } from './source'
+import { formatCompilerDiagnostics } from './diagnostics'
 
 type Request = {
   id: number
@@ -99,10 +100,10 @@ async function processRequest({ id, format, source, prelude, width, height, topI
       const compiled = await runtime.compiler.compile({
         mainFilePath: '/preview.typ',
         incrementalServer,
-        diagnostics: 'unix',
+        diagnostics: 'full',
       })
       if (!compiled.result && compiled.diagnostics?.length) {
-        throw new Error(compiled.diagnostics.join('\n'))
+        throw new Error(formatCompilerDiagnostics(compiled.diagnostics))
       }
       if (!compiled.result) throw new Error('Typst did not produce a preview update.')
       stage = 'merge incremental preview'
@@ -119,10 +120,10 @@ async function processRequest({ id, format, source, prelude, width, height, topI
       const compiled = await runtime.compiler.compile({
         mainFilePath: '/export.typ',
         format: CompileFormatEnum.pdf,
-        diagnostics: 'unix',
+        diagnostics: 'full',
       })
       if (!compiled.result) {
-        throw new Error(compiled.diagnostics?.join('\n') || 'Typst did not produce a PDF.')
+        throw new Error(formatCompilerDiagnostics(compiled.diagnostics) || 'Typst did not produce a PDF.')
       }
       self.postMessage({ id, ok: true, result: compiled.result }, [compiled.result.buffer])
     }

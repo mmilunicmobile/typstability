@@ -1,22 +1,25 @@
 import { CompileErrors } from './CompileErrors'
 import { InspectorPanel } from './InspectorPanel'
-import { Trash2, X } from 'lucide-react'
+import { Braces, Trash2, X } from 'lucide-react'
 import type { TypstElement } from '../types'
 import { TypstCodeEditor, type EditorSessions } from './TypstCodeEditor'
 import { DEFAULT_TYPST_TOP_INSET } from '../typst/source'
 
 type Props = {
   element: TypstElement
+  prelude?: string
   documentKey: string
   sessions: EditorSessions
   onSourceChange: (source: string) => void
   onTopInsetChange: (topInset: number) => void
   onPageFillChange: (pageFill: string) => void
+  onDocumentStyles: () => void
   onDelete: () => void
   onClose: () => void
+  focusRequest?: number
 }
 
-export function TypstInspector({ element, documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDelete, onClose }: Props) {
+export function TypstInspector({ element, prelude = '', documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDocumentStyles, onDelete, onClose, focusRequest }: Props) {
   return (
     <InspectorPanel label="Text box editor">
       <header className="inspector-header">
@@ -59,14 +62,22 @@ export function TypstInspector({ element, documentKey, sessions, onSourceChange,
           />
         </label>
       </div>
+      <div className="box-style-help">
+        <p>Top inset adds padding above the first line. Increase it if tall fractions or accents are clipped.</p>
+        <button className="styles-button" onClick={onDocumentStyles}><Braces size={15} /> Edit document styles</button>
+        <p>Set a shared font size, font, or definition for every text box.</p>
+      </div>
       <TypstCodeEditor
         key={documentKey}
         documentKey={documentKey}
         sessions={sessions}
         label="Text & Typst source"
         value={element.source}
+        error={element.error}
+        languageContext={{ prelude, width: element.width, height: element.height, topInset: element.topInset, pageFill: element.pageFill }}
         onChange={onSourceChange}
         placeholder="Write text or Typst markup…"
+        focusRequest={focusRequest}
         footerAction={<button className="icon-button delete-source" onClick={onDelete} title="Delete text box" aria-label="Delete text box"><Trash2 size={15} /></button>}
       />
       <CompileErrors key={`errors:${documentKey}`} error={element.error} />

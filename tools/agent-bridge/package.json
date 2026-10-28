@@ -1,0 +1,13 @@
+{
+  "name": "typstability-agent-bridge",
+  "private": true,
+  "type": "module",
+  "description": "Optional local stdio MCP bridge to an existing Typstability browser tab",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "playwright": "next"
+  },
+  "scripts": {
+    "test": "node --test policy.check.mjs"
+  }
+}

@@ -1,4 +1,5 @@
 import type { EditorDocument, PageElement } from '../types'
+import { isValidImageCrop } from './image-crop'
 
 const FORMAT = 'typstability'
 function encode(bytes: Uint8Array) {
@@ -43,6 +44,8 @@ export function parseProject(text: string): EditorDocument {
   if (file.format !== FORMAT) throw new Error('This is not a Typstability project file.')
   if (file.version !== 1) throw new Error('This project version is not supported. Update Typstability to open it.')
   const doc = object(file.document)
+  const defaultTopInset = doc.defaultTopInset === undefined ? undefined : number(doc.defaultTopInset)
+  if (defaultTopInset !== undefined && (defaultTopInset < 0 || defaultTopInset > 200)) throw new Error('Invalid default text box padding.')
   const originalPdf = doc.originalPdf === null ? null : decode(doc.originalPdf)
   const ids = new Set<string>()
   const id = (value: unknown) => {
@@ -79,14 +82,17 @@ export function parseProject(text: string): EditorDocument {
           const dataUrl = string(e.dataUrl)
           const prefix = `data:${e.mime};base64,`
           if (!dataUrl.startsWith(prefix) || !decode(dataUrl.slice(prefix.length)).length) throw new Error('Invalid embedded image.')
-          return { ...box, kind: 'image', mime: e.mime, dataUrl }
+          if (e.crop !== undefined && !isValidImageCrop(e.crop)) throw new Error('Invalid image crop.')
+          return { ...box, kind: 'image', mime: e.mime, dataUrl,
+            ...(e.crop === undefined ? {} : { crop: e.crop }) }
         }
         throw new Error('Unsupported project element.')
       }),
     }
   })
   if (!pages.length) throw new Error('Project must contain at least one page.')
-  return { name: string(doc.name).trim() || 'Untitled', prelude: string(doc.prelude), originalPdf, pages, updatedAt: Date.now() }
+  return { name: string(doc.name).trim() || 'Untitled', prelude: string(doc.prelude),
+    ...(defaultTopInset === undefined ? {} : { defaultTopInset }), originalPdf, pages, updatedAt: Date.now() }
 }
 export function downloadProject(document: EditorDocument) {
   const url = URL.createObjectURL(new Blob([serializeProject(document)], { type: 'application/json' }))

@@ -34,4 +34,11 @@ describe('PageThumbnail', () => {
     expect(container.querySelector('.thumbnail-object')).toBeNull()
     expect(container.querySelector('polyline')).toBeNull()
   })
+  it('clips cropped artwork to its visible frame', () => {
+    const { container } = render(<PageThumbnail pdf={null} page={{ ...page, elements: [
+      { id: 'image', kind: 'image', x: 20, y: 30, width: 100, height: 90,
+        dataUrl: 'data:image/png;base64,AA==', mime: 'image/png', crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } },
+    ] }} />)
+    expect(container.querySelector('.thumbnail-object img')).toHaveStyle({ position: 'absolute', left: '-50%', top: '-50%', width: '200%', height: '200%' })
+  })
 })

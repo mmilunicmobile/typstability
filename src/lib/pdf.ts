@@ -6,13 +6,14 @@ import type { EditorDocument, EditorPage, ImageElement, PageElement, StrokeEleme
 import { uid } from '../types'
 import { compileTypstPdf } from '../typst/client'
 import { DEFAULT_TYPST_TOP_INSET } from '../typst/source'
+import { imageSourceBox, isValidImageCrop } from './image-crop'
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker
 
 const appKey = PDFName.of('Typstability')
 const annotationPrefix = 'Typstability:'
 type SavedElement = ImageElement | StrokeElement | Omit<TypstElement, 'previewSvg' | 'previewSource' | 'previewWidth' | 'previewHeight' | 'previewPrelude' | 'previewTopInset' | 'previewPageFill' | 'error'>
-type Manifest = { version: 1; prelude: string; pages: SavedElement[][] }
+type Manifest = { version: 1; prelude: string; defaultTopInset?: number; pages: SavedElement[][] }
 
 function validElement(value: unknown): value is SavedElement {
   if (!value || typeof value !== 'object') return false
@@ -31,6 +32,7 @@ function validElement(value: unknown): value is SavedElement {
     && (item.topInset === undefined || (typeof item.topInset === 'number' && Number.isFinite(item.topInset) && item.topInset >= 0))
     && (item.pageFill === undefined || typeof item.pageFill === 'string')
     : typeof item.dataUrl === 'string' && ['image/png', 'image/jpeg'].includes(String(item.mime))
+      && (item.crop === undefined || isValidImageCrop(item.crop))
 }
 
 function readManifest(pdf: PDFDocument): Manifest | null {
@@ -44,6 +46,8 @@ function readManifest(pdf: PDFDocument): Manifest | null {
     if (!parsed || typeof parsed !== 'object') return null
     const manifest = parsed as Manifest
     if (manifest.version !== 1 || typeof manifest.prelude !== 'string'
+      || (manifest.defaultTopInset !== undefined && (typeof manifest.defaultTopInset !== 'number'
+        || !Number.isFinite(manifest.defaultTopInset) || manifest.defaultTopInset < 0 || manifest.defaultTopInset > 200))
       || !Array.isArray(manifest.pages)
       || !manifest.pages.every((page) => Array.isArray(page) && page.every(validElement))) return null
     return manifest
@@ -117,6 +121,7 @@ export async function readPdf(file: File): Promise<EditorDocument> {
   return {
     name: file.name.replace(/\.pdf$/i, '') || 'Untitled',
     prelude,
+    ...(manifest?.defaultTopInset === undefined ? {} : { defaultTopInset: manifest.defaultTopInset }),
     originalPdf: sourceBytes,
     pages,
     updatedAt: Date.now(),
@@ -221,8 +226,11 @@ async function addElementAnnotation(
     bounds = element
     const bytes = dataUrlBytes(element.dataUrl)
     const embedded = element.mime === 'image/png' ? await output.embedPng(bytes) : await output.embedJpg(bytes)
+    const artwork = imageSourceBox(element)
+    // PDF coordinates start at the bottom, while source crop coordinates start at the top.
+    const bottom = element.height - artwork.height - artwork.y
     appearanceRef = appearance(output, element.width, element.height,
-      `q ${element.width} 0 0 ${element.height} 0 0 cm /Artwork Do Q`,
+      `q 0 0 ${element.width} ${element.height} re W n ${artwork.width} 0 0 ${artwork.height} ${artwork.x} ${bottom} cm /Artwork Do Q`,
       { XObject: { Artwork: embedded.ref } })
   } else {
     const stroke = strokeAppearance(output, element)
@@ -244,6 +252,7 @@ function saveManifest(output: PDFDocument, document: EditorDocument) {
   const manifest: Manifest = {
     version: 1,
     prelude: document.prelude,
+    ...(document.defaultTopInset === undefined ? {} : { defaultTopInset: document.defaultTopInset }),
     pages: document.pages.map((page) => page.elements.map((element) => {
       if (element.kind !== 'typst') return element
       return { id: element.id, kind: element.kind, x: element.x, y: element.y,

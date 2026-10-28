@@ -3,7 +3,7 @@ import { parseProject, serializeProject } from './project-file'
 import type { EditorDocument } from '../types'
 
 const document: EditorDocument = {
-  name: 'Notes ∑', prelude: '#let title = "Hello"', originalPdf: new Uint8Array([0, 255, 128, 10]), updatedAt: 1,
+  defaultTopInset: 7, name: 'Notes ∑', prelude: '#let title = "Hello"', originalPdf: new Uint8Array([0, 255, 128, 10]), updatedAt: 1,
   pages: [{ id: 'p', sourceIndex: 0, width: 612, height: 792, elements: [
     { id: 't', kind: 'typst', x: 10, y: 20, width: 100, height: 80, source: '$ x^2 $', topInset: 6, pageFill: 'rgb("#f5f0e6")', previewSvg: '<svg>cache</svg>' },
     { id: 'i', kind: 'image', x: 0, y: 0, width: 50, height: 50, mime: 'image/png', dataUrl: 'data:image/png;base64,AQID' },
@@ -18,6 +18,7 @@ describe('project files', () => {
     expect(result.originalPdf).toEqual(document.originalPdf)
     expect(result.prelude).toBe(document.prelude)
     expect(result.name).toBe(document.name)
+    expect(result.defaultTopInset).toBe(7)
     expect(result.pages[0].elements[0]).toEqual({ id: 't', kind: 'typst', x: 10, y: 20, width: 100, height: 80, source: '$ x^2 $', topInset: 6, pageFill: 'rgb("#f5f0e6")' })
     expect(result.pages[0].elements.slice(1)).toEqual(document.pages[0].elements.slice(1))
     expect(result.pages[1]).toEqual(document.pages[1])
@@ -25,8 +26,17 @@ describe('project files', () => {
   it('supports projects with no original PDF', () => {
     expect(parseProject(serializeProject({ ...document, originalPdf: null, pages: [document.pages[1]] })).originalPdf).toBeNull()
   })
+  it('round trips image crops while retaining the original image asset', () => {
+    const file = JSON.parse(serializeProject(document))
+    file.document.pages[0].elements[1].crop = { x: 0.25, y: 0.1, width: 0.5, height: 0.8 }
+    const parsed = parseProject(JSON.stringify(file))
+    expect(parseProject(serializeProject(parsed)).pages[0].elements[1]).toEqual(file.document.pages[0].elements[1])
+  })
   it.each([
     (f: any) => { f.version = 2 },
+    (f: any) => { f.document.defaultTopInset = -1 },
+    (f: any) => { f.document.defaultTopInset = 201 },
+    (f: any) => { f.document.defaultTopInset = '7' },
     (f: any) => { f.document.pages[0].width = -1 },
     (f: any) => { f.document.pages[0].elements[1].id = 't' },
     (f: any) => { f.document.pages[0].elements[1].dataUrl = 'https://example.com/pixel.png' },
@@ -36,6 +46,9 @@ describe('project files', () => {
     (f: any) => { f.document.pages[0].elements[0].kind = 'script' },
     (f: any) => { f.document.pages[0].elements[0].topInset = -1 },
     (f: any) => { f.document.pages[0].elements[0].pageFill = 3 },
+    (f: any) => { f.document.pages[0].elements[1].crop = { x: 0.5, y: 0, width: 0.8, height: 1 } },
+    (f: any) => { f.document.pages[0].elements[1].crop = { x: 0, y: 0, width: 0, height: 1 } },
+    (f: any) => { f.document.pages[0].elements[1].crop = 'invalid' },
   ])('rejects malformed or unsupported input', (mutate) => {
     const file = JSON.parse(serializeProject(document))
     mutate(file)
