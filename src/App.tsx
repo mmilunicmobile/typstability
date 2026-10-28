@@ -9,6 +9,7 @@ import { Toolbar } from './components/Toolbar'
 import { TypstInspector } from './components/TypstInspector'
 import type { EditorSessions } from './components/TypstCodeEditor'
 import { useViewportZoom } from './lib/use-viewport-zoom'
+import { useTrackpadZoom } from './lib/use-trackpad-zoom'
 import { useHistoryState } from './lib/history'
 import { decodeImageFile, isSupportedImageFile, placeImage } from './lib/images'
 import { createPdfProxy, downloadBytes, exportPdf, readPdf } from './lib/pdf'
@@ -104,6 +105,7 @@ function App() {
   const busy = library.busy || readingFile
   const widestPage = Math.max(0, ...document.pages.map((page) => page.width))
   const [zoom, setZoom] = useViewportZoom(documentScrollRef, widestPage, !library.libraryOpen && document.pages.length > 0)
+  useTrackpadZoom(documentScrollRef, zoom, setZoom, !library.libraryOpen && document.pages.length > 0)
 
   const activePage = document.pages.find((page) => page.id === activePageId) ?? document.pages[0]
   const selectedElement = useMemo(() => {

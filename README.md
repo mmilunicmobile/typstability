@@ -19,7 +19,7 @@ A minimal, local-first PDF editor with Typst text boxes. Open a PDF, add images,
 - Choose **Draw** to draw with a configurable color and radius. Choose **Erase** to remove any pen stroke that touches its configurable eraser radius.
 - Inserted blank pages participate in editing and export exactly like pages opened from a PDF.
 - The left rail renders miniature PDF pages. Drag thumbnails to reorder pages, or collapse the rail with the panel button above them.
-- Zoom from 10% to 500% using the controls in the status bar.
+- Pinch the trackpad over a page to zoom around the pointer from 10% to 500%. Two-finger scrolling pans the workspace normally; Ctrl + mouse wheel also zooms. Safari gesture events are supported. The status bar reflects gesture zoom and its controls remain available.
 - Exported PDFs contain visible, printable annotations for Typst boxes, images, and pen strokes, plus embedded Typstability metadata. Open an exported PDF again to continue editing the blocks and shared prelude. PDF tools that flatten or discard annotations or private metadata can remove this editability.
 
 ## Projects and backups
