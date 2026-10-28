@@ -206,6 +206,18 @@ input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent-bo
 .typst-inset-control input { width: 52px; height: 28px; padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--surface); text-align: right; }
 .typst-fill-control { flex: 1; min-width: 0; }
 .typst-fill-input { flex: 1; min-width: 0; width: 100%; height: 28px; padding: 0 7px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--surface); font: 11px ui-monospace, monospace; }
+.image-crop-editor { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
+.image-crop-editor p { margin: 0 0 14px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.image-crop-preview { position: relative; overflow: hidden; margin: 0 auto 18px; background: var(--surface-hover); cursor: crosshair; touch-action: none; user-select: none; }
+.image-crop-preview > img { display: block; width: 100%; pointer-events: none; }
+.image-crop-selection { position: absolute; border: 1px solid white; outline: 1px solid var(--accent); outline-offset: -2px; box-shadow: 0 0 0 9999px #0008; pointer-events: none; }
+.image-crop-edges { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.image-crop-edges label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
+.image-crop-edges label > span { display: flex; align-items: center; gap: 4px; }
+.image-crop-edges input { width: 64px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--surface); text-align: right; }
+.image-crop-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+.image-crop-editor .image-crop-note { margin: 14px 0 0; font-size: 11px; }
+.inspector-header strong:has(svg) { display: flex; align-items: center; gap: 7px; }
 .compile-errors { flex: 0 0 auto; margin: 0; border-top: 1px solid var(--line); }
 .compile-errors summary { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 14px; color: var(--muted); font-size: 11px; cursor: pointer; list-style: none; }
 .compile-errors summary::-webkit-details-marker { display: none; }

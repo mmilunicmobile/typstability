@@ -1,4 +1,5 @@
 import type { EditorDocument, PageElement } from '../types'
+import { isValidImageCrop } from './image-crop'
 
 const FORMAT = 'typstability'
 function encode(bytes: Uint8Array) {
@@ -79,7 +80,9 @@ export function parseProject(text: string): EditorDocument {
           const dataUrl = string(e.dataUrl)
           const prefix = `data:${e.mime};base64,`
           if (!dataUrl.startsWith(prefix) || !decode(dataUrl.slice(prefix.length)).length) throw new Error('Invalid embedded image.')
-          return { ...box, kind: 'image', mime: e.mime, dataUrl }
+          if (e.crop !== undefined && !isValidImageCrop(e.crop)) throw new Error('Invalid image crop.')
+          return { ...box, kind: 'image', mime: e.mime, dataUrl,
+            ...(e.crop === undefined ? {} : { crop: e.crop }) }
         }
         throw new Error('Unsupported project element.')
       }),

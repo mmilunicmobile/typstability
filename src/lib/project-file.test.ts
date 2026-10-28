@@ -25,6 +25,12 @@ describe('project files', () => {
   it('supports projects with no original PDF', () => {
     expect(parseProject(serializeProject({ ...document, originalPdf: null, pages: [document.pages[1]] })).originalPdf).toBeNull()
   })
+  it('round trips image crops while retaining the original image asset', () => {
+    const file = JSON.parse(serializeProject(document))
+    file.document.pages[0].elements[1].crop = { x: 0.25, y: 0.1, width: 0.5, height: 0.8 }
+    const parsed = parseProject(JSON.stringify(file))
+    expect(parseProject(serializeProject(parsed)).pages[0].elements[1]).toEqual(file.document.pages[0].elements[1])
+  })
   it.each([
     (f: any) => { f.version = 2 },
     (f: any) => { f.document.pages[0].width = -1 },
@@ -36,6 +42,9 @@ describe('project files', () => {
     (f: any) => { f.document.pages[0].elements[0].kind = 'script' },
     (f: any) => { f.document.pages[0].elements[0].topInset = -1 },
     (f: any) => { f.document.pages[0].elements[0].pageFill = 3 },
+    (f: any) => { f.document.pages[0].elements[1].crop = { x: 0.5, y: 0, width: 0.8, height: 1 } },
+    (f: any) => { f.document.pages[0].elements[1].crop = { x: 0, y: 0, width: 0, height: 1 } },
+    (f: any) => { f.document.pages[0].elements[1].crop = 'invalid' },
   ])('rejects malformed or unsupported input', (mutate) => {
     const file = JSON.parse(serializeProject(document))
     mutate(file)

@@ -6,10 +6,9 @@ import type { Box, EditorPage } from './types'
 import { compileTypstSvg } from './typst/client'
 
 vi.mock('./components/CanvasPage', () => ({
-  CanvasPage: ({ page, onCreateTypst }: { page: EditorPage; onCreateTypst: (box: Box) => void }) => <section className="page-shell" data-page-id={page.id}
-    data-elements={JSON.stringify(page.elements.map((element) => ({
-      kind: element.kind, x: 'x' in element ? element.x : undefined, y: 'y' in element ? element.y : undefined,
-    })))}><button onClick={() => onCreateTypst({ x: 10, y: 10, width: 120, height: 50 })}>Add test Typst box</button></section>,
+  CanvasPage: ({ page, onCreateTypst, onSelect }: { page: EditorPage; onCreateTypst: (box: Box) => void; onSelect: (id: string) => void }) => <section className="page-shell" data-page-id={page.id}
+    data-elements={JSON.stringify(page.elements)}><button onClick={() => onCreateTypst({ x: 10, y: 10, width: 120, height: 50 })}>Add test Typst box</button>
+    {page.elements.filter((element) => element.kind === 'image').map((image) => <button key={image.id} onClick={() => onSelect(image.id)}>Select test image</button>)}</section>,
 }))
 
 vi.mock('./lib/images', async (importOriginal) => ({
@@ -102,6 +101,40 @@ describe('page controls', () => {
 })
 
 describe('image insertion', () => {
+  it('applies and resets a crop with undo/redo and persists it when reopening a project', async () => {
+    const { container } = render(<App />)
+    await createBlankProject('Cropped image')
+    const file = new File(['image'], 'photo.png', { type: 'image/png' })
+    fireEvent.paste(window, { clipboardData: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] } })
+    await screen.findByLabelText('Crop left')
+    const image = () => JSON.parse(container.querySelector<HTMLElement>('.page-shell')?.dataset.elements ?? '[]')[0]
+    const original = image()
+    fireEvent.change(screen.getByLabelText('Crop left'), { target: { value: '25' } })
+    fireEvent.change(screen.getByLabelText('Crop right'), { target: { value: '25' } })
+    expect(image()).toEqual(original)
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByLabelText('Crop left')).toHaveValue(0)
+    fireEvent.change(screen.getByLabelText('Crop left'), { target: { value: '25' } })
+    fireEvent.change(screen.getByLabelText('Crop right'), { target: { value: '25' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply crop' }))
+    const cropped = image()
+    expect(cropped).toEqual({ ...original, x: original.x + 25, width: 50, crop: { x: 0.25, y: 0, width: 0.5, height: 1 } })
+    fireEvent.click(screen.getByTitle('Undo'))
+    expect(image()).toEqual(original)
+    expect(screen.getByLabelText('Crop left')).toHaveValue(0)
+    fireEvent.click(screen.getByTitle('Redo'))
+    expect(image()).toEqual(cropped)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset crop' }))
+    expect(image()).toEqual(original)
+    fireEvent.click(screen.getByTitle('Undo'))
+    expect(image()).toEqual(cropped)
+    fireEvent.click(screen.getByRole('button', { name: 'Back to projects' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Cropped image.*1 page/ }))
+    await screen.findByRole('button', { name: 'Select test image' })
+    expect(image()).toEqual(cropped)
+    fireEvent.click(screen.getByRole('button', { name: 'Select test image' }))
+    expect(screen.getByLabelText('Crop left')).toHaveValue(25)
+  })
   it('pastes into the active page and drops at a position on another page', async () => {
     const { container } = render(<App />)
     await createBlankProject()

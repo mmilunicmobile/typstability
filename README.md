@@ -16,6 +16,7 @@ A minimal, local-first PDF editor with Typst text boxes. Open a PDF, add images,
 - Use **Shared styles** (`{ }`) to define document-wide Typst functions, variables, and styles shared by every text box.
 - Choose **Select** to resize a text box or image, or drag either onto another page. Typst reflows incrementally while a box is resized instead of stretching the old preview.
 - Paste images from the clipboard, drag image files onto a page, or use **Insert → Image**. PNG, JPEG, WebP, and GIF are supported; WebP and GIF are converted locally to PNG for PDF export.
+- Select an image to open **Image crop**. Drag across its original preview or set edge percentages, then choose **Apply crop**. **Cancel** discards pending changes; **Reset crop** restores the full original. Crops support undo/redo and remain editable in saved projects and exported PDFs.
 - Choose **Draw** to draw with a configurable color and radius. Choose **Erase** to remove any pen stroke that touches its configurable eraser radius.
 - Inserted blank pages participate in editing and export exactly like pages opened from a PDF.
 - The left rail renders miniature PDF pages. Drag thumbnails to reorder pages, or collapse the rail with the panel button above them.

@@ -6,6 +6,7 @@ import type { EditorDocument, EditorPage, ImageElement, PageElement, StrokeEleme
 import { uid } from '../types'
 import { compileTypstPdf } from '../typst/client'
 import { DEFAULT_TYPST_TOP_INSET } from '../typst/source'
+import { imageSourceBox, isValidImageCrop } from './image-crop'
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker
 
@@ -31,6 +32,7 @@ function validElement(value: unknown): value is SavedElement {
     && (item.topInset === undefined || (typeof item.topInset === 'number' && Number.isFinite(item.topInset) && item.topInset >= 0))
     && (item.pageFill === undefined || typeof item.pageFill === 'string')
     : typeof item.dataUrl === 'string' && ['image/png', 'image/jpeg'].includes(String(item.mime))
+      && (item.crop === undefined || isValidImageCrop(item.crop))
 }
 
 function readManifest(pdf: PDFDocument): Manifest | null {
@@ -221,8 +223,11 @@ async function addElementAnnotation(
     bounds = element
     const bytes = dataUrlBytes(element.dataUrl)
     const embedded = element.mime === 'image/png' ? await output.embedPng(bytes) : await output.embedJpg(bytes)
+    const artwork = imageSourceBox(element)
+    // PDF coordinates start at the bottom, while source crop coordinates start at the top.
+    const bottom = element.height - artwork.height - artwork.y
     appearanceRef = appearance(output, element.width, element.height,
-      `q ${element.width} 0 0 ${element.height} 0 0 cm /Artwork Do Q`,
+      `q 0 0 ${element.width} ${element.height} re W n ${artwork.width} 0 0 ${artwork.height} ${artwork.x} ${bottom} cm /Artwork Do Q`,
       { XObject: { Artwork: embedded.ref } })
   } else {
     const stroke = strokeAppearance(output, element)

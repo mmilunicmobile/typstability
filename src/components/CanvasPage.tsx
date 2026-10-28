@@ -16,6 +16,7 @@ import type {
 } from '../types'
 import { renderPdfPage } from '../lib/pdf'
 import { canCreateBox, minimumBoxDimension, MIN_BOX_SCREEN_PIXELS } from '../lib/boxes'
+import { imageSourceBox } from '../lib/image-crop'
 
 function useImage(source?: string, isSvg = false) {
   const [image, setImage] = useState<HTMLImageElement | null>(null)
@@ -144,7 +145,7 @@ function CanvasObject({ element, zoom, interactive, selected, onSelect, onChange
         listening={false}
       >
         {element.kind === 'image' ? (
-          image && <KonvaImage image={image} width={element.width} height={element.height} listening={false} />
+          image && <KonvaImage image={image} {...imageSourceBox(element)} listening={false} />
         ) : (
           <>
             {!image && <Rect

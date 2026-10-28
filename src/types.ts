@@ -11,6 +11,8 @@ export type ImageElement = {
   height: number
   dataUrl: string
   mime: 'image/png' | 'image/jpeg'
+  /** Visible source rectangle, normalized to the original image dimensions. */
+  crop?: Box
 }
 
 export type TypstElement = {

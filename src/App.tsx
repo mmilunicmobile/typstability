@@ -7,10 +7,12 @@ import { PageThumbnail } from './components/PageThumbnail'
 import { PreludeInspector } from './components/PreludeInspector'
 import { Toolbar } from './components/Toolbar'
 import { TypstInspector } from './components/TypstInspector'
+import { ImageInspector } from './components/ImageInspector'
 import type { EditorSessions } from './components/TypstCodeEditor'
 import { useViewportZoom } from './lib/use-viewport-zoom'
 import { useHistoryState } from './lib/history'
 import { decodeImageFile, isSupportedImageFile, placeImage } from './lib/images'
+import { imageCropStyle } from './lib/image-crop'
 import { createPdfProxy, downloadBytes, exportPdf, readPdf } from './lib/pdf'
 import { useProjects } from './lib/use-projects'
 import { downloadProject, parseProject } from './lib/project-file'
@@ -114,6 +116,7 @@ function App() {
   }, [document.pages, selection])
 
   const selectedTypst = selectedElement?.kind === 'typst' ? selectedElement : null
+  const selectedImage = selectedElement?.kind === 'image' ? selectedElement : null
   const selectedTypstId = selectedTypst?.id
   const selectedTypstSource = selectedTypst?.source
   const selectedTypstWidth = selectedTypst?.width
@@ -720,7 +723,7 @@ function App() {
             <button className="add-page-button" onClick={insertBlankPage} title="Insert a blank page after the current page"><Plus size={15} /> Add page</button>
           </>}
         </nav>
-        <main ref={documentScrollRef} className={`document-scroll ${selectedTypst || preludeOpen ? 'with-inspector' : ''}`}>
+        <main ref={documentScrollRef} className={`document-scroll ${selectedTypst || selectedImage || preludeOpen ? 'with-inspector' : ''}`}>
           {document.pages.map((page, index) => (
             <div id={`page-${page.id}`} key={page.id} className={`page-positioner ${imageDropTarget === page.id ? 'is-image-drop-target' : ''}`}>
               <CanvasPage
@@ -776,6 +779,15 @@ function App() {
             onClose={() => setSelection(null)}
           />
         )}
+        {!preludeOpen && selectedImage && selection && (
+          <ImageInspector
+            key={`${selectedImage.id}:${JSON.stringify(selectedImage.crop)}`}
+            element={selectedImage}
+            onChange={(element) => updateElement(selection.pageId, element)}
+            onDelete={deleteSelection}
+            onClose={() => setSelection(null)}
+          />
+        )}
         {preludeOpen && (
           <PreludeInspector
             source={document.prelude}
@@ -797,7 +809,7 @@ function App() {
             }}
           >
             {dragPreview.element.kind === 'image' && (
-              <img src={dragPreview.element.dataUrl} alt="" />
+              <img src={dragPreview.element.dataUrl} alt="" style={imageCropStyle(dragPreview.element)} />
             )}
             {dragPreview.element.kind === 'typst' && dragPreview.element.previewSvg && (
               <img
