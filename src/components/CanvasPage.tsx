@@ -227,8 +227,8 @@ type Props = {
   zoom: number
   tool: Tool
   selection: Selection
-  showGrid: boolean
-  snapEnabled: boolean
+  showGrid?: boolean
+  snapEnabled?: boolean
   penColor: string
   penRadius: number
   eraserRadius: number
@@ -243,7 +243,7 @@ type Props = {
   onCreateTypst: (box: Box) => void
 }
 
-type BoxGesture = { start: Point; current: Point }
+type BoxGesture = { start: Point; current: Point; rawStart?: Point }
 
 export function CanvasPage({
   page,
@@ -252,8 +252,8 @@ export function CanvasPage({
   zoom,
   tool,
   selection,
-  showGrid,
-  snapEnabled,
+  showGrid = false,
+  snapEnabled = false,
   penColor,
   penRadius,
   eraserRadius,
@@ -338,7 +338,7 @@ export function CanvasPage({
           if (tool === 'pen') setTemporaryStroke([point])
           else if (tool === 'typst') {
             const start = snapEnabled && !event.evt.altKey ? snapBoxPosition({ ...point, width: 0, height: 0 }, page, zoom).box : point
-            setTemporaryBox({ start, current: start })
+            setTemporaryBox({ start, current: start, rawStart: point })
           }
           else if (tool === 'eraser') {
             setEraserPoint(point)
