@@ -65,7 +65,7 @@ export function Toolbar(props: Props) {
         { label: 'Image', description: 'Add PNG, JPEG, WebP, or GIF images.', icon: <ImagePlus size={18} />, onSelect: props.onImage },
         { label: 'Blank page', description: 'Insert a page after the current one.', icon: <FileText size={18} />, onSelect: props.onBlankPage },
       ]} />
-      <button className={`styles-button ${props.preludeOpen ? 'is-active' : ''}`} aria-pressed={props.preludeOpen} onClick={props.onPrelude} title="Shared Typst definitions and styles"><Braces size={17} /><span>Shared styles</span></button>
+      <button className={`styles-button ${props.preludeOpen ? 'is-active' : ''}`} aria-pressed={props.preludeOpen} onClick={props.onPrelude} title="Set fonts, font size, padding, and shared Typst definitions for this document"><Braces size={17} /><span>Document styles</span></button>
       <div className="history-controls" role="group" aria-label="Edit history">
         <button className="icon-button" title="Undo" aria-label="Undo" onClick={props.onUndo} disabled={!props.canUndo}><Undo2 size={17} /></button>
         <button className="icon-button" title="Redo" aria-label="Redo" onClick={props.onRedo} disabled={!props.canRedo}><Redo2 size={17} /></button>

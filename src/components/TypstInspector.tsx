@@ -1,6 +1,6 @@
 import { CompileErrors } from './CompileErrors'
 import { InspectorPanel } from './InspectorPanel'
-import { Trash2, X } from 'lucide-react'
+import { Braces, Trash2, X } from 'lucide-react'
 import type { TypstElement } from '../types'
 import { TypstCodeEditor, type EditorSessions } from './TypstCodeEditor'
 import { DEFAULT_TYPST_TOP_INSET } from '../typst/source'
@@ -12,11 +12,12 @@ type Props = {
   onSourceChange: (source: string) => void
   onTopInsetChange: (topInset: number) => void
   onPageFillChange: (pageFill: string) => void
+  onDocumentStyles: () => void
   onDelete: () => void
   onClose: () => void
 }
 
-export function TypstInspector({ element, documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDelete, onClose }: Props) {
+export function TypstInspector({ element, documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDocumentStyles, onDelete, onClose }: Props) {
   return (
     <InspectorPanel label="Text box editor">
       <header className="inspector-header">
@@ -58,6 +59,11 @@ export function TypstInspector({ element, documentKey, sessions, onSourceChange,
             spellCheck={false}
           />
         </label>
+      </div>
+      <div className="box-style-help">
+        <p>Top inset adds padding above the first line. Increase it if tall fractions or accents are clipped.</p>
+        <button className="styles-button" onClick={onDocumentStyles}><Braces size={15} /> Edit document styles</button>
+        <p>Set a shared font size, font, or definition for every text box.</p>
       </div>
       <TypstCodeEditor
         key={documentKey}

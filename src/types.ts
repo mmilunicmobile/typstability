@@ -54,6 +54,7 @@ export type EditorPage = {
 export type EditorDocument = {
   name: string
   prelude: string
+  defaultTopInset?: number
   originalPdf: Uint8Array | null
   pages: EditorPage[]
   updatedAt: number

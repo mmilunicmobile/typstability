@@ -337,3 +337,15 @@ input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent-bo
 .library-utilities { display: flex; align-items: center; gap: 20px; }
 .theme-toggle { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--muted); }
 .theme-toggle:hover { background: var(--surface-hover); color: var(--accent); border-color: var(--accent-border); }
+
+.document-style-controls, .box-style-help { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.document-style-controls label { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; font-weight: 600; }
+.document-style-controls p, .box-style-help p { margin: 6px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.document-style-controls p:last-child, .box-style-help p:last-child { margin-bottom: 0; }
+.style-number-input { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-weight: 400; }
+.style-number-input input { width: 64px; border: 1px solid var(--line); border-radius: 5px; padding: 5px; background: var(--surface); color: var(--ink); }
+.document-style-controls .styles-button, .box-style-help .styles-button { width: auto; max-width: 100%; height: auto; padding: 7px 9px; border: 1px solid var(--line); justify-content: flex-start; text-align: left; }
+.editing-bar > .styles-button { width: auto; flex-shrink: 0; }
+.editing-bar > .styles-button span { display: inline; }
+@media (max-width: 900px) { .document-style-controls { max-height: 120px; overflow-y: auto; flex-shrink: 0; } }
+@media (max-width: 650px) { .editing-bar > .styles-button span { display: none; } }

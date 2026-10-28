@@ -391,7 +391,7 @@ function App() {
       kind: 'typst',
       ...box,
       source: '',
-      topInset: DEFAULT_TYPST_TOP_INSET,
+      topInset: document.defaultTopInset ?? DEFAULT_TYPST_TOP_INSET,
     }
     updateDocument((current) => ({
       ...current,
@@ -771,6 +771,7 @@ function App() {
             sessions={editorSessions}
             onSourceChange={(source) => updateElement(selection.pageId, { ...selectedTypst, source })}
             onTopInsetChange={(topInset) => updateElement(selection.pageId, { ...selectedTypst, topInset })}
+            onDocumentStyles={() => setPreludeOpen(true)}
             onPageFillChange={(pageFill) => updateElement(selection.pageId, { ...selectedTypst, pageFill })}
             onDelete={deleteSelection}
             onClose={() => setSelection(null)}
@@ -779,6 +780,12 @@ function App() {
         {preludeOpen && (
           <PreludeInspector
             source={document.prelude}
+            defaultTopInset={document.defaultTopInset ?? DEFAULT_TYPST_TOP_INSET}
+            onDefaultTopInsetChange={(defaultTopInset) => updateDocument((current) => ({ ...current, defaultTopInset }))}
+            onApplyPadding={() => updateDocument((current) => ({ ...current, pages: current.pages.map((page) => ({
+              ...page, elements: page.elements.map((element) => element.kind === 'typst'
+                ? { ...element, topInset: current.defaultTopInset ?? DEFAULT_TYPST_TOP_INSET } : element),
+            })) }))}
             documentKey={`${library.activeId}:prelude`}
             sessions={editorSessions}
             error={preludeError}

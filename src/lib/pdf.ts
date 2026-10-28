@@ -12,7 +12,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker
 const appKey = PDFName.of('Typstability')
 const annotationPrefix = 'Typstability:'
 type SavedElement = ImageElement | StrokeElement | Omit<TypstElement, 'previewSvg' | 'previewSource' | 'previewWidth' | 'previewHeight' | 'previewPrelude' | 'previewTopInset' | 'previewPageFill' | 'error'>
-type Manifest = { version: 1; prelude: string; pages: SavedElement[][] }
+type Manifest = { version: 1; prelude: string; defaultTopInset?: number; pages: SavedElement[][] }
 
 function validElement(value: unknown): value is SavedElement {
   if (!value || typeof value !== 'object') return false
@@ -44,6 +44,8 @@ function readManifest(pdf: PDFDocument): Manifest | null {
     if (!parsed || typeof parsed !== 'object') return null
     const manifest = parsed as Manifest
     if (manifest.version !== 1 || typeof manifest.prelude !== 'string'
+      || (manifest.defaultTopInset !== undefined && (typeof manifest.defaultTopInset !== 'number'
+        || !Number.isFinite(manifest.defaultTopInset) || manifest.defaultTopInset < 0 || manifest.defaultTopInset > 200))
       || !Array.isArray(manifest.pages)
       || !manifest.pages.every((page) => Array.isArray(page) && page.every(validElement))) return null
     return manifest
@@ -117,6 +119,7 @@ export async function readPdf(file: File): Promise<EditorDocument> {
   return {
     name: file.name.replace(/\.pdf$/i, '') || 'Untitled',
     prelude,
+    ...(manifest?.defaultTopInset === undefined ? {} : { defaultTopInset: manifest.defaultTopInset }),
     originalPdf: sourceBytes,
     pages,
     updatedAt: Date.now(),
@@ -244,6 +247,7 @@ function saveManifest(output: PDFDocument, document: EditorDocument) {
   const manifest: Manifest = {
     version: 1,
     prelude: document.prelude,
+    ...(document.defaultTopInset === undefined ? {} : { defaultTopInset: document.defaultTopInset }),
     pages: document.pages.map((page) => page.elements.map((element) => {
       if (element.kind !== 'typst') return element
       return { id: element.id, kind: element.kind, x: element.x, y: element.y,

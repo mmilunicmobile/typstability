@@ -33,6 +33,7 @@ describe('editable PDF round trip', () => {
     const original: EditorDocument = {
       name: 'Example',
       prelude: '#let brand = blue',
+      defaultTopInset: 9,
       originalPdf: await base.save(),
       pages: [{
         id: 'page-1', sourceIndex: 0, width: 612, height: 792,
@@ -70,6 +71,7 @@ describe('editable PDF round trip', () => {
 
     const reopened = await readPdf(asFile(first))
     expect(reopened.prelude).toBe(original.prelude)
+    expect(reopened.defaultTopInset).toBe(9)
     expect(reopened.pages[0].elements).toEqual(original.pages[0].elements)
     const clean = await PDFDocument.load(reopened.originalPdf!)
     expect(clean.getPage(0).node.Annots()?.size() ?? 0).toBe(0)

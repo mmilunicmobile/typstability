@@ -160,3 +160,28 @@ describe('Typst top inset', () => {
     await waitFor(() => expect(compileTypstSvg).toHaveBeenCalledWith('', 120, 50, '', 12, 'rgb("#f5f0e6")'))
   })
 })
+
+
+describe('document styles', () => {
+  it('offers global font sizing and padding from the toolbar and a text box', async () => {
+    render(<App />)
+    await createBlankProject()
+    fireEvent.click(screen.getByRole('button', { name: 'Add test Typst box' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit document styles' }))
+    const fontSize = screen.getByRole('spinbutton', { name: /Font size for all text boxes/ })
+    fireEvent.change(fontSize, { target: { value: '10' } })
+    expect(fontSize).toHaveValue(10)
+    await waitFor(() => expect(compileTypstSvg).toHaveBeenCalledWith('', 120, 50, '#set text(size: 10pt)', 4, ''))
+    fireEvent.change(screen.getByRole('spinbutton', { name: /Top padding for new text boxes/ }), { target: { value: '9' } })
+    fireEvent.click(screen.getByRole('button', { name: /Apply padding to all existing text boxes/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close document styles' }))
+    expect(screen.getByRole('spinbutton', { name: 'Top inset' })).toHaveValue(9)
+    fireEvent.click(screen.getByTitle('Undo'))
+    expect(screen.getByRole('spinbutton', { name: 'Top inset' })).toHaveValue(4)
+    fireEvent.click(screen.getByRole('button', { name: 'Add test Typst box' }))
+    expect(screen.getByRole('spinbutton', { name: 'Top inset' })).toHaveValue(9)
+    fireEvent.click(screen.getByRole('button', { name: 'Document styles' }))
+    expect(screen.getByRole('spinbutton', { name: /Font size for all text boxes/ })).toHaveValue(10)
+    await waitFor(() => expect([...records.values()][0]?.document.defaultTopInset).toBe(9))
+  })
+})
