@@ -232,7 +232,7 @@ type Props = {
   onCreateTypst: (box: Box) => void
 }
 
-type BoxGesture = { start: Point; current: Point }
+type BoxGesture = { start: Point; current: Point; rawStart?: Point }
 
 export function CanvasPage({
   page,
@@ -291,7 +291,7 @@ export function CanvasPage({
       // A click in Text mode opens the topmost existing box instead.
       if (canCreateBox(box, zoom)) onCreateTypst(box)
       else if (allowTextClick && temporaryBox) {
-        const point = temporaryBox.start
+        const point = temporaryBox.rawStart ?? temporaryBox.start
         const target = [...page.elements].reverse().find((element) => element.kind === 'typst'
           && point.x >= element.x && point.x <= element.x + element.width
           && point.y >= element.y && point.y <= element.y + element.height)
