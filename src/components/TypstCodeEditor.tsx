@@ -22,6 +22,7 @@ type Props = {
   placeholder: string
   onChange: (source: string) => void
   footerAction?: ReactNode
+  focusRequest?: number
 }
 
 const externalChange = Annotation.define<boolean>()
@@ -42,7 +43,7 @@ const editorLayout = EditorView.theme({
 // Use the parser/editing services without stacking the language's fixed light palette.
 const typstLanguage = typst_lezer().language
 
-export function TypstCodeEditor({ documentKey, sessions, value, label, placeholder, onChange, footerAction }: Props) {
+export function TypstCodeEditor({ documentKey, sessions, value, label, placeholder, onChange, footerAction, focusRequest }: Props) {
   const { theme, editorTheme, setEditorTheme } = useTheme()
   const selectedTheme = resolveEditorTheme(editorTheme, theme)
   const [colorScheme] = useState(() => new Compartment())
@@ -133,6 +134,10 @@ export function TypstCodeEditor({ documentKey, sessions, value, label, placehold
       view.destroy()
     }
   }, [documentKey, sessions, label, placeholder, runFormat, colorScheme])
+
+  useEffect(() => {
+    if (focusRequest !== undefined) editor.current?.focus()
+  }, [focusRequest])
 
   useEffect(() => {
     editor.current?.dispatch({ effects: colorScheme.reconfigure(editorColorScheme(selectedTheme)) })

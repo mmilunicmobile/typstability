@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import type { Project } from './lib/storage'
@@ -151,6 +151,7 @@ describe('Typst top inset', () => {
     render(<App />)
     await createBlankProject()
     fireEvent.click(screen.getByRole('button', { name: 'Add test Typst box' }))
+    expect(screen.getByRole('textbox', { name: 'Text & Typst source' })).toHaveFocus()
     const inset = screen.getByRole('spinbutton', { name: 'Top inset' })
     expect(inset).toHaveValue(4)
     fireEvent.change(inset, { target: { value: '12' } })
@@ -158,5 +159,59 @@ describe('Typst top inset', () => {
     await waitFor(() => expect(compileTypstSvg).toHaveBeenCalledWith('', 120, 50, '', 12, ''))
     fireEvent.change(screen.getByLabelText('Fill (Typst)'), { target: { value: 'rgb("#f5f0e6")' } })
     await waitFor(() => expect(compileTypstSvg).toHaveBeenCalledWith('', 120, 50, '', 12, 'rgb("#f5f0e6")'))
+  })
+})
+
+// Use the real app state/history/autosave path while supplying the browser capability.
+describe('WebMCP agent access', () => {
+  it('registers real tools, commits undoable autosaved edits, rejects stale batches, and revokes access', async () => {
+    const tools = new Map<string, import('./lib/use-webmcp').WebMcpTool>()
+    Object.defineProperty(document, 'modelContext', { configurable: true, value: {
+      registerTool: vi.fn((tool: import('./lib/use-webmcp').WebMcpTool, options: { signal: AbortSignal }) => {
+        tools.set(tool.name, tool)
+        options.signal.addEventListener('abort', () => { if (tools.get(tool.name) === tool) tools.delete(tool.name) })
+      }),
+    } })
+    try {
+      render(<App />)
+      await createBlankProject()
+      expect(tools.size).toBe(0)
+      fireEvent.click(screen.getByText('Agent access'))
+      fireEvent.click(screen.getByRole('checkbox', { name: /Allow agents/ }))
+      await waitFor(() => expect(tools.size).toBe(2))
+      const readTool = tools.get('typstability_read_session')!
+      const editTool = tools.get('typstability_edit_session')!
+      const read = () => JSON.parse((readTool.execute({}) as { content: { text: string }[] }).content[0].text)
+      const before = read()
+      let editResult: any
+      act(() => { editResult = editTool.execute({ revision: before.revision, operations: [
+        { action: 'set_document', name: 'Agent edited', prelude: '#set text(size: 12pt)' },
+        { action: 'add_text_box', pageId: before.document.pages[0].id, x: 25, y: 30, width: 200, height: 70, source: 'From the agent' },
+      ] }) })
+      expect(editResult.isError).not.toBe(true)
+      const after = read()
+      expect(after.document).toMatchObject({ name: 'Agent edited', prelude: '#set text(size: 12pt)', pages: [{ elements: [{ source: 'From the agent', width: 200 }] }] })
+      expect(after.revision).toBeGreaterThan(before.revision)
+      const returned = JSON.parse(editResult.content[0].text)
+      expect(returned.revision).toBe(after.revision)
+      expect(editTool.execute({ revision: before.revision, operations: [{ action: 'set_document', name: 'Stale' }] })).toMatchObject({ isError: true })
+      await waitFor(() => expect([...records.values()][0].document.name).toBe('Agent edited'))
+      expect([...records.values()][0].document.pages[0].elements[0]).toMatchObject({ source: 'From the agent' })
+      fireEvent.click(screen.getByTitle('Undo'))
+      expect(read().document).toMatchObject({ name: 'Test document', prelude: '', pages: [{ elements: [] }] })
+      fireEvent.click(screen.getByTitle('Redo'))
+      expect(read().document.name).toBe('Agent edited')
+      fireEvent.click(screen.getByRole('button', { name: 'Back to projects' }))
+      await waitFor(() => expect(tools.size).toBe(0))
+      expect(editTool.execute({ revision: read().revision, operations: [{ action: 'set_document', name: 'Revoked' }] })).toMatchObject({ isError: true })
+    } finally { delete (document as Document & { modelContext?: unknown }).modelContext }
+  })
+
+  it('explains browser support when WebMCP is unavailable', async () => {
+    render(<App />)
+    await createBlankProject()
+    fireEvent.click(screen.getByText('Agent access'))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Allow agents/ }))
+    expect(await screen.findByText(/WebMCP is unavailable in this browser/)).toBeInTheDocument()
   })
 })

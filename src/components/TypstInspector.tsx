@@ -14,9 +14,10 @@ type Props = {
   onPageFillChange: (pageFill: string) => void
   onDelete: () => void
   onClose: () => void
+  focusRequest?: number
 }
 
-export function TypstInspector({ element, documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDelete, onClose }: Props) {
+export function TypstInspector({ element, documentKey, sessions, onSourceChange, onTopInsetChange, onPageFillChange, onDelete, onClose, focusRequest }: Props) {
   return (
     <InspectorPanel label="Text box editor">
       <header className="inspector-header">
@@ -67,6 +68,7 @@ export function TypstInspector({ element, documentKey, sessions, onSourceChange,
         value={element.source}
         onChange={onSourceChange}
         placeholder="Write text or Typst markup…"
+        focusRequest={focusRequest}
         footerAction={<button className="icon-button delete-source" onClick={onDelete} title="Delete text box" aria-label="Delete text box"><Trash2 size={15} /></button>}
       />
       <CompileErrors key={`errors:${documentKey}`} error={element.error} />

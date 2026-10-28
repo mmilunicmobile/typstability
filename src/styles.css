@@ -337,3 +337,17 @@ input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent-bo
 .library-utilities { display: flex; align-items: center; gap: 20px; }
 .theme-toggle { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--muted); }
 .theme-toggle:hover { background: var(--surface-hover); color: var(--accent); border-color: var(--accent-border); }
+
+.agent-access { position: relative; flex-shrink: 0; }
+.agent-access > summary { cursor: pointer; padding: 4px 8px; }
+.agent-access-panel {
+  position: absolute; bottom: 32px; left: 0; z-index: 40;
+  width: min(340px, calc(100vw - 40px)); padding: 16px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 30px #0002; font-size: 12px; line-height: 1.5;
+}
+.agent-access-panel p { margin: 8px 0; white-space: normal; }
+.agent-access-panel label { display: flex; gap: 8px; align-items: flex-start; }
+.agent-access-panel input { margin-top: 3px; }
+.agent-access-panel a { color: var(--accent, #229ca8); }

@@ -8,6 +8,7 @@ A minimal, local-first PDF editor with Typst text boxes. Open a PDF, add images,
 ## Editing
 
 - Choose the **Text** tool, then drag on a page to create a text box. The bundled Typst WebAssembly compiler keeps a long-lived incremental compilation session, so the preview updates as you type.
+- Empty text boxes keep a dashed outline and can be clicked in Select or Text mode to reopen and focus the source editor. Dragging in Text mode can overlap existing boxes. Corner handles resize width and height freely; hold **Shift** to preserve proportions.
 - Text boxes can be created with very small drags. They start with a 4 pt top inset to protect tall first-line glyphs; adjust **Top inset** in the inspector, including setting it to 0 pt when needed.
 - Boxes have a white background by default. Use `#set page(fill: rgb("#f5f0e6"))` in Shared styles for a common color, or enter a Typst fill expression in a box’s **Fill (Typst)** field. Enter `none` for transparency.
 - Drag the editor sidebar’s left edge to make more room for source. Its width is remembered for text boxes and Shared styles. Double-click the divider to reset, or focus it and use the arrow keys. On narrow screens the editor docks below the page. Resizing the sidebar fits the pages to the available width, up to your preferred zoom. Manual zoom overrides the fit until the next workspace resize.
@@ -33,6 +34,10 @@ A minimal, local-first PDF editor with Typst text boxes. Open a PDF, add images,
 - The previous single-session autosave is migrated into the project library automatically. The old record remains as a backup during migration.
 
 Project files use a versioned JSON format with embedded base64 assets. Imports validate the document structure and PDF page references. Typst source, top inset, and fill are preserved; previews are regenerated from source. Undo history and temporary editor state are not included.
+
+## Bring your own agent
+
+Enable **Agent access** in an open project's status bar to register WebMCP tools for reading and editing the session. Agent edits appear in the editor, autosave, and support Undo. Browser support is experimental; unsupported browsers show a capability message. See [browser requirements and local Codex/Claude connection instructions](docs/agents.md), including an optional local stdio MCP bridge.
 
 ## Local development
 

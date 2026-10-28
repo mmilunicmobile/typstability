@@ -56,6 +56,7 @@ function CanvasObject({ element, zoom, interactive, selected, onSelect, onChange
     element.kind === 'image' ? element.dataUrl : element.previewSvg,
     element.kind === 'typst',
   )
+  const emptyText = element.kind === 'typst' && !element.source.trim()
 
   useEffect(() => {
     if (selected && shapeRef.current && transformerRef.current) {
@@ -176,13 +177,16 @@ function CanvasObject({ element, zoom, interactive, selected, onSelect, onChange
             )}
           </>
         )}
+        {emptyText && element.width > 90 && element.height > 22 && (
+          <Text x={7} y={7} text="Click to edit text" fontSize={11} fill="#77746c" listening={false} />
+        )}
       </Group>
       <Rect
         ref={shapeRef}
         {...common}
         fill="rgba(0, 0, 0, 0.001)"
-        stroke={selected ? '#229ca8' : element.kind === 'typst' && !image ? '#b7b5ad' : undefined}
-        dash={element.kind === 'typst' && !image ? [4, 4] : undefined}
+        stroke={selected ? '#229ca8' : element.kind === 'typst' && (!image || emptyText) ? '#b7b5ad' : undefined}
+        dash={element.kind === 'typst' && (!image || emptyText) ? [4, 4] : undefined}
         strokeWidth={selected ? 1 : undefined}
       />
       {selected && (
@@ -190,6 +194,8 @@ function CanvasObject({ element, zoom, interactive, selected, onSelect, onChange
           ref={transformerRef}
           rotateEnabled={false}
           flipEnabled={false}
+          keepRatio={false}
+          shiftBehavior="default"
           borderStroke="#229ca8"
           anchorFill="#ffffff"
           anchorStroke="#229ca8"
@@ -278,9 +284,20 @@ export function CanvasPage({
     return point ? { x: point.x / zoom, y: point.y / zoom } : null
   }
 
-  const finishGesture = () => {
+  const finishGesture = (allowTextClick = false) => {
     if (tool === 'pen' && temporaryStroke.length) onAddStroke(temporaryStroke)
-    if (tool === 'typst' && box && canCreateBox(box, zoom)) onCreateTypst(box)
+    if (tool === 'typst' && box) {
+      // Drawing stays on the stage, even when a drag crosses another box.
+      // A click in Text mode opens the topmost existing box instead.
+      if (canCreateBox(box, zoom)) onCreateTypst(box)
+      else if (allowTextClick && temporaryBox) {
+        const point = temporaryBox.start
+        const target = [...page.elements].reverse().find((element) => element.kind === 'typst'
+          && point.x >= element.x && point.x <= element.x + element.width
+          && point.y >= element.y && point.y <= element.y + element.height)
+        if (target) onSelect(target.id)
+      }
+    }
     setTemporaryStroke([])
     setTemporaryBox(null)
     if (tool !== 'eraser') setEraserPoint(null)
@@ -332,7 +349,7 @@ export function CanvasPage({
             if (event.evt.buttons) onEraseAt(point)
           }
         }}
-        onPointerUp={finishGesture}
+        onPointerUp={() => finishGesture(true)}
         onPointerLeave={() => {
           finishGesture()
           setEraserPoint(null)

@@ -9,6 +9,8 @@ import { Toolbar } from './components/Toolbar'
 import { TypstInspector } from './components/TypstInspector'
 import type { EditorSessions } from './components/TypstCodeEditor'
 import { useViewportZoom } from './lib/use-viewport-zoom'
+import { useWebMcp } from './lib/use-webmcp'
+import { AgentAccess } from './components/AgentAccess'
 import { useHistoryState } from './lib/history'
 import { decodeImageFile, isSupportedImageFile, placeImage } from './lib/images'
 import { createPdfProxy, downloadBytes, exportPdf, readPdf } from './lib/pdf'
@@ -54,6 +56,7 @@ function App() {
   const resetDocumentState = documentHistory.reset
   const [pdfProxy, setPdfProxy] = useState<PDFDocumentProxy | null>(null)
   const [selection, setSelection] = useState<Selection>(null)
+  const [sourceFocusRequest, setSourceFocusRequest] = useState(0)
   const [activePageId, setActivePageId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
   const [penColor, setPenColor] = useState('#1f2328')
@@ -141,6 +144,12 @@ function App() {
   const updateDocument = useCallback((updater: (current: EditorDocument) => EditorDocument, record = true) => {
     setDocumentState((current) => ({ ...updater(current), updatedAt: Date.now() }), record)
   }, [setDocumentState])
+
+  const agentAccess = useWebMcp({
+    active: library.ready && !library.libraryOpen && !busy && document.pages.length > 0,
+    document, projectId: library.activeId ?? null, selection,
+    onEdit: (next) => updateDocument(() => next),
+  })
 
   const updateElement = useCallback((pageId: string, next: PageElement, record = true) => {
     updateDocument((current) => ({
@@ -400,6 +409,7 @@ function App() {
         : page),
     }))
     setSelection({ pageId, elementId: element.id })
+    setSourceFocusRequest((request) => request + 1)
     setPreludeOpen(false)
     setTool('select')
   }
@@ -737,6 +747,10 @@ function App() {
                 onSelect={(elementId) => {
                   setPreludeOpen(false)
                   setSelection(elementId ? { pageId: page.id, elementId } : null)
+                  if (elementId) {
+                    setTool('select')
+                    setSourceFocusRequest((request) => request + 1)
+                  }
                 }}
                 onChangeElement={(element, record) => updateElement(page.id, element, record)}
                 onResizeEnd={(element) => {
@@ -769,6 +783,7 @@ function App() {
             element={selectedTypst}
             documentKey={`${library.activeId}:box:${selectedTypst.id}`}
             sessions={editorSessions}
+            focusRequest={sourceFocusRequest}
             onSourceChange={(source) => updateElement(selection.pageId, { ...selectedTypst, source })}
             onTopInsetChange={(topInset) => updateElement(selection.pageId, { ...selectedTypst, topInset })}
             onPageFillChange={(pageFill) => updateElement(selection.pageId, { ...selectedTypst, pageFill })}
@@ -810,7 +825,8 @@ function App() {
       </div>
       <footer className="editor-statusbar">
         <span className="page-count">Page {Math.max(1, document.pages.findIndex((page) => page.id === activePage?.id) + 1)} of {document.pages.length}</span>
-        <span className="tool-hint">{tool === 'typst' ? 'Drag on a page to add a text box.' : tool === 'pen' ? 'Drag to draw. Your strokes save automatically.' : tool === 'eraser' ? 'Drag over pen strokes to erase them.' : 'Click an object to move, resize, or edit it.'}</span>
+        <AgentAccess {...agentAccess} />
+        <span className="tool-hint">{tool === 'typst' ? 'Drag to add a text box; click a box to edit.' : tool === 'pen' ? 'Drag to draw. Your strokes save automatically.' : tool === 'eraser' ? 'Drag over pen strokes to erase them.' : 'Click to edit. Drag corners to resize; hold Shift to keep proportions.'}</span>
         <div className="zoom-control">
           <button className="fit-page" onClick={() => {
             const viewport = documentScrollRef.current
