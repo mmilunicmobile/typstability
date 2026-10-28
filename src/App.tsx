@@ -8,6 +8,8 @@ import { PreludeInspector } from './components/PreludeInspector'
 import { Toolbar } from './components/Toolbar'
 import { TypstInspector } from './components/TypstInspector'
 import type { EditorSessions } from './components/TypstCodeEditor'
+import { useAlignmentSettings } from './lib/use-alignment-settings'
+import { snapBoxPosition } from './lib/alignment'
 import { useViewportZoom } from './lib/use-viewport-zoom'
 import { useHistoryState } from './lib/history'
 import { decodeImageFile, isSupportedImageFile, placeImage } from './lib/images'
@@ -56,6 +58,7 @@ function App() {
   const [selection, setSelection] = useState<Selection>(null)
   const [activePageId, setActivePageId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
+  const alignment = useAlignmentSettings()
   const [penColor, setPenColor] = useState('#1f2328')
   const [penRadius, setPenRadius] = useState(2)
   const [eraserRadius, setEraserRadius] = useState(12)
@@ -428,11 +431,14 @@ function App() {
       x = (drop.clientX - rect.left) / zoom - drop.grabOffset.x
       y = (drop.clientY - rect.top) / zoom - drop.grabOffset.y
     }
-    const moved = {
+    const bounded = {
       ...element,
       x: Math.max(0, Math.min(destinationPage.width - element.width, x)),
       y: Math.max(0, Math.min(destinationPage.height - element.height, y)),
     }
+
+    const moved = alignment.snapEnabled && !drop.disableSnap
+      ? snapBoxPosition(bounded, destinationPage, zoom, element.id).box : bounded
 
     updateDocument((current) => ({
       ...current,
@@ -451,7 +457,7 @@ function App() {
     }))
     setActivePageId(destinationPageId)
     setSelection({ pageId: destinationPageId, elementId: moved.id })
-  }, [document.pages, updateDocument, zoom])
+  }, [alignment.snapEnabled, document.pages, updateDocument, zoom])
 
   const eraseAt = useCallback((pageId: string, point: Point) => {
     const page = document.pages.find((candidate) => candidate.id === pageId)
@@ -650,6 +656,10 @@ function App() {
         penColor={penColor}
         penRadius={penRadius}
         eraserRadius={eraserRadius}
+        showGrid={alignment.showGrid}
+        snapEnabled={alignment.snapEnabled}
+        onGrid={alignment.toggleGrid}
+        onSnap={alignment.toggleSnap}
         preludeOpen={preludeOpen}
         onImage={() => imageInputRef.current?.click()}
         onTool={setChosenTool}
@@ -730,6 +740,8 @@ function App() {
                 zoom={zoom}
                 tool={tool}
                 selection={selection}
+                showGrid={alignment.showGrid}
+                snapEnabled={alignment.snapEnabled}
                 penColor={penColor}
                 penRadius={penRadius}
                 eraserRadius={eraserRadius}

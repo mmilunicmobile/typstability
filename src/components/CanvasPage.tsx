@@ -14,6 +14,7 @@ import type {
   Tool,
   TypstElement,
 } from '../types'
+import { GRID_SPACING, snapBoxPosition, type AlignmentGuides } from '../lib/alignment'
 import { renderPdfPage } from '../lib/pdf'
 import { canCreateBox, minimumBoxDimension, MIN_BOX_SCREEN_PIXELS } from '../lib/boxes'
 
@@ -39,6 +40,9 @@ function useImage(source?: string, isSvg = false) {
 type ObjectProps = {
   element: ImageElement | TypstElement
   zoom: number
+  page: EditorPage
+  snapEnabled: boolean
+  onGuides: (guides: AlignmentGuides) => void
   interactive: boolean
   selected: boolean
   onSelect: () => void
@@ -48,7 +52,7 @@ type ObjectProps = {
   onDragPreview: (preview: ObjectDragPreview | null) => void
 }
 
-function CanvasObject({ element, zoom, interactive, selected, onSelect, onChange, onResizeEnd, onDrop, onDragPreview }: ObjectProps) {
+function CanvasObject({ element, zoom, page, snapEnabled, onGuides, interactive, selected, onSelect, onChange, onResizeEnd, onDrop, onDragPreview }: ObjectProps) {
   const shapeRef = useRef<Konva.Rect>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const grabOffset = useRef<Point>({ x: 0, y: 0 })
@@ -93,6 +97,7 @@ function CanvasObject({ element, zoom, interactive, selected, onSelect, onChange
     onClick: onSelect,
     onTap: onSelect,
     onDragStart: (event: Konva.KonvaEventObject<DragEvent>) => {
+      onSelect()
       const node = shapeRef.current
       const stage = node?.getStage()
       const pointer = stage?.getPointerPosition()
@@ -108,16 +113,26 @@ function CanvasObject({ element, zoom, interactive, selected, onSelect, onChange
       })
     },
     onDragMove: (event: Konva.KonvaEventObject<DragEvent>) => {
+      const node = shapeRef.current
+      let moved = element
+      if (node && snapEnabled && !event.evt.altKey) {
+        const result = snapBoxPosition({ ...element, x: node.x(), y: node.y() }, page, zoom, element.id)
+        node.position({ x: result.box.x, y: result.box.y })
+        moved = result.box
+        onGuides(result.guides)
+      } else onGuides({})
       onDragPreview({
-        element,
+        element: moved,
         clientX: event.evt.clientX,
         clientY: event.evt.clientY,
         grabOffset: grabOffset.current,
       })
     },
     onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
+      onGuides({})
       onDragPreview(null)
       onDrop(normalizedElement(), {
+        disableSnap: event.evt.altKey,
         clientX: event.evt.clientX,
         clientY: event.evt.clientY,
         grabOffset: grabOffset.current,
@@ -212,6 +227,8 @@ type Props = {
   zoom: number
   tool: Tool
   selection: Selection
+  showGrid: boolean
+  snapEnabled: boolean
   penColor: string
   penRadius: number
   eraserRadius: number
@@ -235,6 +252,8 @@ export function CanvasPage({
   zoom,
   tool,
   selection,
+  showGrid,
+  snapEnabled,
   penColor,
   penRadius,
   eraserRadius,
@@ -249,6 +268,7 @@ export function CanvasPage({
   onCreateTypst,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [guides, setGuides] = useState<AlignmentGuides>({})
   const [temporaryStroke, setTemporaryStroke] = useState<Point[]>([])
   const [temporaryBox, setTemporaryBox] = useState<BoxGesture | null>(null)
   const [eraserPoint, setEraserPoint] = useState<Point | null>(null)
@@ -275,12 +295,15 @@ export function CanvasPage({
 
   const pointerPosition = (stage: Konva.Stage) => {
     const point = stage.getPointerPosition()
-    return point ? { x: point.x / zoom, y: point.y / zoom } : null
+    if (!point) return null
+    const position = { x: point.x / zoom, y: point.y / zoom }
+    return position
   }
 
   const finishGesture = () => {
     if (tool === 'pen' && temporaryStroke.length) onAddStroke(temporaryStroke)
     if (tool === 'typst' && box && canCreateBox(box, zoom)) onCreateTypst(box)
+    setGuides({})
     setTemporaryStroke([])
     setTemporaryBox(null)
     if (tool !== 'eraser') setEraserPoint(null)
@@ -313,7 +336,10 @@ export function CanvasPage({
           const point = stage ? pointerPosition(stage) : null
           if (!point) return
           if (tool === 'pen') setTemporaryStroke([point])
-          else if (tool === 'typst') setTemporaryBox({ start: point, current: point })
+          else if (tool === 'typst') {
+            const start = snapEnabled && !event.evt.altKey ? snapBoxPosition({ ...point, width: 0, height: 0 }, page, zoom).box : point
+            setTemporaryBox({ start, current: start })
+          }
           else if (tool === 'eraser') {
             setEraserPoint(point)
             onEraseAt(point)
@@ -326,7 +352,9 @@ export function CanvasPage({
           if (tool === 'pen' && temporaryStroke.length) {
             setTemporaryStroke((current) => [...current, point])
           } else if (tool === 'typst' && temporaryBox) {
-            setTemporaryBox((current) => current ? { ...current, current: point } : current)
+            const snapped = snapEnabled && !event.evt.altKey ? snapBoxPosition({ ...point, width: 0, height: 0 }, page, zoom) : null
+            setGuides(snapped?.guides ?? {})
+            setTemporaryBox((current) => current ? { ...current, current: snapped?.box ?? point } : current)
           } else if (tool === 'eraser') {
             setEraserPoint(point)
             if (event.evt.buttons) onEraseAt(point)
@@ -339,6 +367,12 @@ export function CanvasPage({
         }}
       >
         <Layer>
+          {showGrid && <Group listening={false}>
+            {Array.from({ length: Math.floor(page.width / GRID_SPACING) + 1 }, (_, index) => <Line key={`grid-x-${index}`}
+              points={[index * GRID_SPACING, 0, index * GRID_SPACING, page.height]} stroke="#229ca8" opacity={0.2} strokeWidth={0.5 / zoom} />)}
+            {Array.from({ length: Math.floor(page.height / GRID_SPACING) + 1 }, (_, index) => <Line key={`grid-y-${index}`}
+              points={[0, index * GRID_SPACING, page.width, index * GRID_SPACING]} stroke="#229ca8" opacity={0.2} strokeWidth={0.5 / zoom} />)}
+          </Group>}
           {page.elements.map((element) => {
             if (element.kind === 'stroke') {
               return (
@@ -359,6 +393,9 @@ export function CanvasPage({
                 key={element.id}
                 element={element}
                 zoom={zoom}
+                page={page}
+                snapEnabled={snapEnabled}
+                onGuides={setGuides}
                 interactive={tool === 'select'}
                 selected={tool === 'select' && selection?.pageId === page.id && selection.elementId === element.id}
                 onSelect={() => onSelect(element.id)}
@@ -369,6 +406,8 @@ export function CanvasPage({
               />
             )
           })}
+          {guides.x !== undefined && <Line points={[guides.x, 0, guides.x, page.height]} stroke="#d04794" strokeWidth={1 / zoom} dash={[4 / zoom, 3 / zoom]} listening={false} />}
+          {guides.y !== undefined && <Line points={[0, guides.y, page.width, guides.y]} stroke="#d04794" strokeWidth={1 / zoom} dash={[4 / zoom, 3 / zoom]} listening={false} />}
           {!!temporaryStroke.length && (
             <Line
               points={flatTemporaryPoints}

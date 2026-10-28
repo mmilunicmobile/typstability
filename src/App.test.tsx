@@ -6,7 +6,7 @@ import type { Box, EditorPage } from './types'
 import { compileTypstSvg } from './typst/client'
 
 vi.mock('./components/CanvasPage', () => ({
-  CanvasPage: ({ page, onCreateTypst }: { page: EditorPage; onCreateTypst: (box: Box) => void }) => <section className="page-shell" data-page-id={page.id}
+  CanvasPage: ({ page, onCreateTypst, showGrid, snapEnabled }: { page: EditorPage; showGrid: boolean; snapEnabled: boolean; onCreateTypst: (box: Box) => void }) => <section className="page-shell" data-page-id={page.id} data-grid={String(showGrid)} data-snap={String(snapEnabled)}
     data-elements={JSON.stringify(page.elements.map((element) => ({
       kind: element.kind, x: 'x' in element ? element.x : undefined, y: 'y' in element ? element.y : undefined,
     })))}><button onClick={() => onCreateTypst({ x: 10, y: 10, width: 120, height: 50 })}>Add test Typst box</button></section>,
@@ -158,5 +158,30 @@ describe('Typst top inset', () => {
     await waitFor(() => expect(compileTypstSvg).toHaveBeenCalledWith('', 120, 50, '', 12, ''))
     fireEvent.change(screen.getByLabelText('Fill (Typst)'), { target: { value: 'rgb("#f5f0e6")' } })
     await waitFor(() => expect(compileTypstSvg).toHaveBeenCalledWith('', 120, 50, '', 12, 'rgb("#f5f0e6")'))
+  })
+})
+
+
+describe('alignment preferences', () => {
+  it('toggles grid and snapping independently and remembers the settings', async () => {
+    localStorage.removeItem('typstability-alignment')
+    const { container } = render(<App />)
+    await createBlankProject()
+    const page = container.querySelector<HTMLElement>('.page-shell')!
+    expect(page.dataset.grid).toBe('false')
+    expect(page.dataset.snap).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'Alignment' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Show grid/ }))
+    expect(page.dataset.grid).toBe('true')
+    expect(page.dataset.snap).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'Alignment' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Enable snapping/ }))
+    expect(page.dataset.snap).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Alignment' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Hide grid/ }))
+    expect(page.dataset.grid).toBe('false')
+    expect(page.dataset.snap).toBe('true')
+    expect(JSON.parse(localStorage.getItem('typstability-alignment') ?? '{}')).toEqual({ showGrid: false, snapEnabled: true })
+    localStorage.removeItem('typstability-alignment')
   })
 })

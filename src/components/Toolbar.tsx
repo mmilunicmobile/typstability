@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, Braces, Check, Download, Eraser, FileDown, FileText,
+  Grid2X2, Magnet, ArrowLeft, Braces, Check, Download, Eraser, FileDown, FileText,
   ImagePlus, MousePointer2, PenLine, Plus, Redo2, RotateCcw, Type, Undo2, AlertCircle,
 } from 'lucide-react'
 import type { Tool } from '../types'
@@ -19,6 +19,10 @@ type Props = {
   penColor: string
   penRadius: number
   eraserRadius: number
+  showGrid: boolean
+  snapEnabled: boolean
+  onGrid: () => void
+  onSnap: () => void
   preludeOpen: boolean
   onImage: () => void
   onTool: (tool: Tool) => void
@@ -66,6 +70,10 @@ export function Toolbar(props: Props) {
         { label: 'Blank page', description: 'Insert a page after the current one.', icon: <FileText size={18} />, onSelect: props.onBlankPage },
       ]} />
       <button className={`styles-button ${props.preludeOpen ? 'is-active' : ''}`} aria-pressed={props.preludeOpen} onClick={props.onPrelude} title="Shared Typst definitions and styles"><Braces size={17} /><span>Shared styles</span></button>
+      <ActionMenu label="Alignment" icon={<Grid2X2 size={17} />} align="left" items={[
+        { label: props.showGrid ? 'Hide grid' : 'Show grid', description: 'Display a 12 pt alignment grid on every page.', icon: <Grid2X2 size={18} />, onSelect: props.onGrid },
+        { label: props.snapEnabled ? 'Disable snapping' : 'Enable snapping', description: 'Snap to grid, object edges, and centers. Hold Alt to move freely.', icon: <Magnet size={18} />, onSelect: props.onSnap },
+      ]} />
       <div className="history-controls" role="group" aria-label="Edit history">
         <button className="icon-button" title="Undo" aria-label="Undo" onClick={props.onUndo} disabled={!props.canUndo}><Undo2 size={17} /></button>
         <button className="icon-button" title="Redo" aria-label="Redo" onClick={props.onRedo} disabled={!props.canRedo}><Redo2 size={17} /></button>

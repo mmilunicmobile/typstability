@@ -64,6 +64,7 @@ export type Selection = { pageId: string; elementId: string } | null
 export type Box = { x: number; y: number; width: number; height: number }
 
 export type ObjectDrop = {
+  disableSnap?: boolean
   clientX: number
   clientY: number
   grabOffset: Point
